@@ -1,0 +1,13 @@
+development:
+  dialect: "mysql"
+  database: "recipes_development"
+  host: "localhost"
+  port: "3306"
+  user: "root"
+  password: "root"
+
+test:
+  url: {{envOr "TEST_DATABASE_URL" "mysql://root:root@(localhost:3306)/recipes_test?parseTime=true&multiStatements=true&readTimeout=1s"}}
+
+production:
+  url: {{envOr "DATABASE_URL" "mysql://root:root@(localhost:3306)/recipes_production?parseTime=true&multiStatements=true&readTimeout=1s"}}
