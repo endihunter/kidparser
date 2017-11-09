@@ -45,7 +45,6 @@ func App() *buffalo.App {
 		// Remove to disable this.
 		app.Use(middleware.PopTransaction(models.DB))
 
-		app.GET("/", HomeHandler)
 		app.POST("/upload", UploadHandler)
 	}
 
