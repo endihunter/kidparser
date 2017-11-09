@@ -1,0 +1,6 @@
+create_table("users", func(t) {
+    t.Column("id", "integer", {"primary": true})
+	t.Column("name", "string", {"size": 100})
+	t.Column("email", "string", {"size": 100})
+	t.Column("active", "boolean", {"default": true})
+})

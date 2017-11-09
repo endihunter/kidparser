@@ -1,0 +1,4 @@
+drop_index("users", "users_email_idx")
+drop_index("users", "users_active_idx")
+drop_index("users", "users_created_at_idx")
+drop_index("users", "users_updated_at_idx")

@@ -2,9 +2,8 @@ package main
 
 import (
 	"log"
-
-  "recipes/actions"
-  "github.com/gobuffalo/envy"
+	"recipes/actions"
+	"github.com/gobuffalo/envy"
 )
 
 func main() {
