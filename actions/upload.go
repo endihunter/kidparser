@@ -1,18 +1,17 @@
 package actions
 
 import (
-	"io"
 	"os"
 	"fmt"
 	"time"
 	"errors"
 	"regexp"
-	"strings"
-	"io/ioutil"
 	"recipes/models"
-	"recipes/helpers"
-	"golang.org/x/net/html"
 	"github.com/gobuffalo/buffalo"
+	"mime/multipart"
+	"recipes/helpers"
+	"strings"
+	"golang.org/x/net/html"
 )
 
 func UploadHandler(c buffalo.Context) error {
@@ -25,13 +24,13 @@ func UploadHandler(c buffalo.Context) error {
 	if err != nil {
 		msg := fmt.Sprintf("BAD_DEV. Device with dsn '%v' not found.", dsn)
 
-		return errors.New(msg)
+		return stringError(c, errors.New(msg))
 	}
 
 	// prepare raw log
 	var rawLog models.RawLog
 	if err := rawLog.CreateFromRequest(c.Request(), device); err != nil {
-		return err
+		return stringError(c, err)
 	}
 
 	serverTime := time.Now()
@@ -44,7 +43,7 @@ func UploadHandler(c buffalo.Context) error {
 	if match == false || err != nil {
 		msg := fmt.Sprintf("Client date time has invalid format. Expected format: dd/MM/YYYY HH:mm:ss.")
 
-		return errors.New(msg)
+		return stringError(c, errors.New(msg))
 	}
 
 	deviceSettings, err := device.GetSettings()
@@ -75,11 +74,11 @@ func UploadHandler(c buffalo.Context) error {
 
 	c.Request().ParseMultipartForm(102400)
 	file, fileHeaders, err := c.Request().FormFile("file")
-	if err != nil {
-		return err
-	}
-
 	defer file.Close()
+
+	if err != nil {
+		return stringError(c, err)
+	}
 
 	// for html logs dailyQuota is bigger then for other types
 	if fileHeaders.Header.Get("Content-Type") == "text/html" {
@@ -87,75 +86,105 @@ func UploadHandler(c buffalo.Context) error {
 	}
 
 	if usedQuota >= dailyQuota {
-		return errors.New("reject - you've reached the daily quota")
+		return stringError(c, errors.New("REJECT - you've reached the daily quota"))
 	}
 
 	usedQuota += fileHeaders.Size
 	device.DailyTraffic = usedQuota
 
 	if err := device.UpdateState(); err != nil {
-		return errors.New("could not save device info")
+		return stringError(c, errors.New("could not save device info"))
 	}
 
-	cwd, _ := os.Getwd()
-	targetDir := fmt.Sprintf("%v/tmp/files/device_%v", cwd, device.ID)
+	tch, ch := make(chan interface{}), make(chan interface{})
 
-	stat, err := os.Stat(targetDir)
-	if err != nil || !stat.IsDir() {
-		err := os.MkdirAll(targetDir, os.ModePerm)
+	go device.HandleStorage(tch)
+	target := <-tch
 
-		if err != nil {
-			return err
-		}
+	// return Human error if it fails
+	if _, ok := target.(error); ok == true {
+		return stringError(c, target.(error))
 	}
 
-	// Upload File
-	targetFile, err := os.OpenFile(targetDir+"/"+fileHeaders.Filename, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return err
+	go storeUploadedFile(target.(string), fileHeaders, file, ch)
+	content := <-ch
+
+	// return Human error if it fails
+	if _, ok := content.(error); ok == true {
+		return stringError(c, content.(error))
 	}
-	defer targetFile.Close()
-	io.Copy(targetFile, file)
-
-	// @todo: Read only 250 kb
-	// Lines: 145-148
-
-	var content string
-	fc, err := ioutil.ReadFile(targetFile.Name())
-	if err != nil {
-		return err
-	}
-
-	content = string(fc)
 
 	// @todo: Check & Adjust Member's account
 	// Lines: 150-163
 
 	member := new(models.Member)
 
-	var log []helpers.DeltaLog
-
 	if member.AccountName() != "basic" {
-		content, err := helpers.CleanContentWithTidy(content)
-		if err != nil {
-			return err
-		}
-
-		content = helpers.StripTags(content)
-
-		dom, err := html.Parse(strings.NewReader(content))
+		chl, ech := make(chan []helpers.DeltaLog), make(chan error)
+		go parseHtmlFile(content.(string), device, chl, ech)
+		log, err := <-chl, <-ech
 
 		if err != nil {
-			return err
+			return stringError(c, err)
 		}
-
-		log = helpers.Parse(dom, device.ID, log)
 
 		st := new(models.LogsDelta)
 		st.Persist(log)
 	}
 
-	return c.Render(200, r.JSON(map[string]interface{}{
-		"log": log,
-	}))
+	return c.Render(200, r.String("OK"))
+}
+
+func stringError(c buffalo.Context, err error) error {
+	return c.Render(500, r.String(err.Error()))
+}
+
+func parseHtmlFile(content string, device models.Device, chl chan []helpers.DeltaLog, ech chan error) {
+	defer close(chl)
+	defer close(ech)
+
+	var log []helpers.DeltaLog
+
+	content, err := helpers.CleanContentWithTidy(content)
+	if err != nil {
+		ech <- err
+		return
+	}
+
+	content = helpers.StripTags(content)
+	dom, err := html.Parse(strings.NewReader(content))
+
+	if err != nil {
+		ech <- err
+		return
+	}
+
+	chl <- helpers.Parse(dom, device.ID, log)
+}
+
+func storeUploadedFile(targetDir string, fileHeaders *multipart.FileHeader, file multipart.File, ch chan interface{}) {
+	defer close(ch)
+
+	// Upload File
+	tf, err := os.OpenFile(targetDir+"/"+fileHeaders.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	defer tf.Close()
+
+	if err != nil {
+		ch <- err
+		return
+	}
+
+	// @todo: Read only 250 kb
+	// Lines: 145-148
+	fc := make([]byte, fileHeaders.Size)
+
+	if _, err = file.Read(fc); err != nil {
+		ch <- err
+		return
+	}
+
+	content := string(fc)
+	tf.WriteString(content)
+
+	ch <- content
 }

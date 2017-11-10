@@ -1,15 +1,13 @@
 package actions
 
 import (
-	"github.com/gobuffalo/buffalo"
-	"github.com/gobuffalo/buffalo/middleware"
-	"github.com/gobuffalo/buffalo/middleware/ssl"
+	"recipes/models"
 	"github.com/gobuffalo/envy"
 	"github.com/unrolled/secure"
-
-	"recipes/models"
-
+	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/x/sessions"
+	"github.com/gobuffalo/buffalo/middleware"
+	"github.com/gobuffalo/buffalo/middleware/ssl"
 )
 
 // ENV is used to help switch settings based on where the
@@ -29,7 +27,7 @@ func App() *buffalo.App {
 		})
 		// Automatically redirect to SSL
 		app.Use(ssl.ForceSSL(secure.Options{
-			SSLRedirect:     ENV == "production",
+			SSLRedirect:     false /*ENV == "production"*/,
 			SSLProxyHeaders: map[string]string{"X-Forwarded-Proto": "https"},
 		}))
 

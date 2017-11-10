@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"strings"
 	"golang.org/x/net/html"
-	"github.com/JalfResi/GoTidy"
+	//"github.com/JalfResi/GoTidy"
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -60,20 +60,20 @@ func StripTags(content string) string {
 func CleanContentWithTidy(fileContent string) (string, error) {
 	return fileContent, nil
 
-	t := tidy.New()
-	defer t.Free()
-
-	t.OutputXml(true)
-	t.Clean(true)
-	t.HideComments(true)
-	t.FixBadComments(true)
-	t.DropEmptyParas(true)
-	t.DropFontTags(true)
-	t.FixUri(true)
-	t.ShowBodyOnly(tidy.True)
-	t.OutputEncoding(tidy.Utf8)
-	t.CharEncoding(tidy.Utf8)
-	tidyContent, err := t.Tidy(fileContent)
-
-	return tidyContent, err
+	//t := tidy.New()
+	//defer t.Free()
+	//
+	//t.OutputXml(true)
+	//t.Clean(true)
+	//t.HideComments(true)
+	//t.FixBadComments(true)
+	//t.DropEmptyParas(true)
+	//t.DropFontTags(true)
+	//t.FixUri(true)
+	//t.ShowBodyOnly(tidy.True)
+	//t.OutputEncoding(tidy.Utf8)
+	//t.CharEncoding(tidy.Utf8)
+	//tidyContent, err := t.Tidy(fileContent)
+	//
+	//return tidyContent, err
 }

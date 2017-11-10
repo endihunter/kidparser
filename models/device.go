@@ -7,6 +7,10 @@ import (
 	"encoding/binary"
 	"github.com/markbates/pop/nulls"
 	"math"
+	"os"
+	"fmt"
+	"errors"
+	"strings"
 )
 
 type Device struct {
@@ -78,6 +82,24 @@ func (d *Device) Int2Ip(nn uint32) net.IP {
 	ip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(ip, nn)
 	return ip
+}
+
+func (d *Device) HandleStorage(ch chan interface{}) {
+	defer close(ch)
+
+	cwd, _ := os.Getwd()
+	targetDir := fmt.Sprintf("%v/storage/files/device_%v", cwd, d.ID)
+	stat, err := os.Stat(targetDir)
+	if err != nil || !stat.IsDir() {
+		err := os.MkdirAll(targetDir, os.ModePerm)
+
+		if err != nil {
+			ch <- errors.New(fmt.Sprintf("could not create directory \"%v\"", strings.Replace(targetDir, cwd, "", -1)))
+			return
+		}
+	}
+
+	ch <- targetDir
 }
 
 // String is not required by pop and may be deleted

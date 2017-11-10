@@ -33,7 +33,7 @@ func (l *LogsDelta) Persist(logs []helpers.DeltaLog) error {
 	return DB.Transaction(func(tx *pop.Connection) error {
 		for _, v := range logs {
 			model := l.Import(v)
-			tx.Create(&model)
+			DB.Create(&model)
 		}
 
 		return nil
