@@ -1,2 +1,0 @@
-raw("ALTER TABLE posts DROP FOREIGN KEY `posts_user_id_foreign`;")
-drop_table("posts")

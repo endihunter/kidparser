@@ -1,3 +1,0 @@
-create_table("devices", func(t) {
-	t.Column("id", "uuid", {"primary": true})
-})
