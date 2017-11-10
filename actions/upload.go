@@ -176,7 +176,11 @@ func storeUploadedFile(targetDir string, fileHeaders *multipart.FileHeader, file
 	}
 
 	content := string(fc)
-	tf.WriteString(content)
+	_, err = tf.WriteString(content)
+
+	if err != nil {
+		return "", err
+	}
 
 	return content, nil
 }
