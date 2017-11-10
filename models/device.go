@@ -84,9 +84,7 @@ func (d *Device) Int2Ip(nn uint32) net.IP {
 	return ip
 }
 
-func (d *Device) HandleStorage(ch chan interface{}) {
-	defer close(ch)
-
+func (d *Device) HandleStorage() (string, error) {
 	cwd, _ := os.Getwd()
 	targetDir := fmt.Sprintf("%v/storage/files/device_%v", cwd, d.ID)
 	stat, err := os.Stat(targetDir)
@@ -94,12 +92,11 @@ func (d *Device) HandleStorage(ch chan interface{}) {
 		err := os.MkdirAll(targetDir, os.ModePerm)
 
 		if err != nil {
-			ch <- errors.New(fmt.Sprintf("could not create directory \"%v\"", strings.Replace(targetDir, cwd, "", -1)))
-			return
+			return "", errors.New(fmt.Sprintf("could not create directory \"%v\"", strings.Replace(targetDir, cwd, "", -1)))
 		}
 	}
 
-	ch <- targetDir
+	return targetDir, nil
 }
 
 // String is not required by pop and may be deleted

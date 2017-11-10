@@ -96,22 +96,18 @@ func UploadHandler(c buffalo.Context) error {
 		return stringError(c, errors.New("could not save device info"))
 	}
 
-	tch, ch := make(chan interface{}), make(chan interface{})
-
-	go device.HandleStorage(tch)
-	target := <-tch
+	target, err := device.HandleStorage()
 
 	// return Human error if it fails
-	if _, ok := target.(error); ok == true {
-		return stringError(c, target.(error))
+	if err != nil {
+		return stringError(c, err)
 	}
 
-	go storeUploadedFile(target.(string), fileHeaders, file, ch)
-	content := <-ch
+	content, err := storeUploadedFile(target, fileHeaders, file)
 
 	// return Human error if it fails
-	if _, ok := content.(error); ok == true {
-		return stringError(c, content.(error))
+	if err != nil {
+		return stringError(c, err)
 	}
 
 	// @todo: Check & Adjust Member's account
@@ -121,7 +117,7 @@ func UploadHandler(c buffalo.Context) error {
 
 	if member.AccountName() != "basic" {
 		chl, ech := make(chan []helpers.DeltaLog), make(chan error)
-		go parseHtmlFile(content.(string), device, chl, ech)
+		go parseHtmlFile(content, device, chl, ech)
 		log, err := <-chl, <-ech
 
 		if err != nil {
@@ -162,16 +158,13 @@ func parseHtmlFile(content string, device models.Device, chl chan []helpers.Delt
 	chl <- helpers.Parse(dom, device.ID, log)
 }
 
-func storeUploadedFile(targetDir string, fileHeaders *multipart.FileHeader, file multipart.File, ch chan interface{}) {
-	defer close(ch)
-
+func storeUploadedFile(targetDir string, fileHeaders *multipart.FileHeader, file multipart.File) (string, error) {
 	// Upload File
 	tf, err := os.OpenFile(targetDir+"/"+fileHeaders.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	defer tf.Close()
 
 	if err != nil {
-		ch <- err
-		return
+		return "", err
 	}
 
 	// @todo: Read only 250 kb
@@ -179,12 +172,11 @@ func storeUploadedFile(targetDir string, fileHeaders *multipart.FileHeader, file
 	fc := make([]byte, fileHeaders.Size)
 
 	if _, err = file.Read(fc); err != nil {
-		ch <- err
-		return
+		return "", err
 	}
 
 	content := string(fc)
 	tf.WriteString(content)
 
-	ch <- content
+	return content, nil
 }
